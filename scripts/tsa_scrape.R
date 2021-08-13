@@ -54,7 +54,7 @@ old <- read.csv(stored, header = TRUE, sep=",")
 old$Date <- lubridate::ymd(old$Date)
 colnames(old) <- c("Date", "2021", "2020", "2019")
 
-if (old[1,1] < passengers[1,1]){
+if (old[1,1] < passengers[1, "Date", drop = TRUE]){
   passengers <- passengers %>%
     pivot_wider(names_from = "Year", values_from = "Passengers")
   colnames(old) <- colnames(passengers)
