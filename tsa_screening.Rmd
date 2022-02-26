@@ -1,0 +1,216 @@
+```{r setup, echo=FALSE, message=FALSE, warning=FALSE}
+# find and load packages
+packages <- c("tidyverse", 
+              "rvest", 
+              "extrafont", 
+              "ggrepel", 
+              "kableExtra")
+
+for (package in packages) {
+  #install packages that the script can't find
+  if (!package %in% installed.packages()) {
+    install.packages(
+      package,
+      dependencies = TRUE
+    )
+    
+  }
+  
+  #load the packages we need
+  if (!package %in% .packages()) {
+    library(
+      package,
+      character.only = TRUE
+    )
+  }
+}
+
+# load fonts
+loadfonts(device = "win", quiet = TRUE)
+
+# establish plotting colors for years of review since 2019
+tsa_colors = c(`2019` = "green3", 
+               `2020` = "firebrick2", 
+               `2021` = "lightskyblue",
+               `2022` = "purple2")
+
+# fetch the latest screening numbers
+stored <- "data/tsa_screen.csv"
+url <- "https://www.tsa.gov/coronavirus/passenger-throughput"
+TSA <- url %>%
+  xml2::read_html() %>%
+  html_table(fill = TRUE)
+
+# process the HTML table into a tall dataframe
+passengers <- na.omit(TSA[[1]])
+passengers <- passengers %>%
+  pivot_longer(-Date, names_to = "Year", 
+               names_pattern = "^(\\d+)", values_to = "Passengers") %>%
+  mutate(Passengers = as.numeric(gsub(",", "", Passengers)))
+passengers$Date <- lubridate::mdy(passengers$Date)
+passengers <- passengers %>%
+  arrange(desc(Date))
+
+# check this table for new material. update backup if new data exists.
+old <- read.csv(stored, header = TRUE, sep=",")
+old$Date <- lubridate::ymd(old$Date)
+#colnames(old) <- c("Date", "2021", "2020", "2019")
+
+
+### why do I pivot wider to merge? rewrite this
+if (max(old$Date) < max(passengers$Date)){
+  colnames(old) <- colnames(passengers)
+  new <- merge(old, passengers, all.y = TRUE)
+  new <- unique(new)
+  write.csv(new,stored, row.names = FALSE)
+  rm(TSA, new, old)
+} else {
+  passengers <- old %>%
+    arrange(Date, Year)
+  rm(TSA, old)
+}
+
+passengers <- passengers %>%
+  pivot_wider(names_from = "Year", values_from = "Passengers") %>%
+  mutate(pc = (`2022`/`2019`)*100) %>%
+    pivot_longer(`2019`:`2022`, names_to = "Year", 
+                 names_pattern = "^(\\d+)", values_to = "Passengers") %>%
+    mutate(Passengers = as.numeric(gsub(",", "", Passengers))) %>%
+    arrange(desc(Date), Year)
+
+# set up some baseline comparisons used in the graphs
+maxmonth <- passengers %>%
+  arrange(desc(Date)) %>%
+  filter(Date >= as.Date(format(Sys.Date()-months(1), "%Y-%m-01")) & Year != "2019" & !is.na(Passengers)) %>%
+  summarize(max(Passengers))
+
+ref2019 <- passengers %>%
+  filter(Date == max(Date) & Year == 2019) %>%
+  summarize(reference = Passengers*.8)
+
+pcref <- passengers %>%
+  filter(Date == max(Date))
+
+# plot the current and year-ago screenings
+f <- passengers %>%
+  filter(Date >= as.Date(format(Sys.Date(), "%Y-01-01"))) %>%
+  arrange(Date) %>%
+  ggplot(., aes(x=Date, y=Passengers, col=Year)) +
+  geom_line(size=0.8) +
+  geom_hline(aes(yintercept=100000), color="#990000", linetype="dashed") +
+  geom_text(aes(as.Date(format(Sys.Date(), "%Y-03-20")),100000,label = "100,000 passengers", vjust=1, family = "Segoe UI Semibold"), color="#990000", show.legend = FALSE) +
+  scale_y_continuous(labels = scales::comma) +
+  scale_color_manual(values = tsa_colors) +
+  labs(title = paste("TSA Passengers Screened as of", format(max(passengers$Date), "%B %d"), sep = " "),
+       subtitle = paste("Current as of ", format(max(passengers$Date), "%d %B"), sep = ""),
+       caption = "Source: Transportation Security Administration",
+       x = element_blank(),
+       y = element_blank()) +
+  theme_light(base_family = "Segoe UI Semibold") +
+  theme(plot.title = element_text(hjust = 0.5),
+        plot.subtitle = element_text(hjust = 0.5),
+        legend.position = "bottom",
+        legend.title = element_blank(),
+        panel.background = element_rect(fill = "white"),
+        panel.border = element_blank(),
+        panel.grid.major.y = element_line(size = 0.25, linetype = "solid", color = "gray"),
+        panel.grid.minor.y = element_blank(),
+        panel.grid.major.x = element_blank(),
+        panel.grid.minor.x = element_blank(),
+        strip.background = element_rect(color = "#005DAA", fill = "#6CADDF"),
+        strip.text.x = element_text(color = "White"))
+
+latest <- passengers %>% # What is the latest number of passengers screened?
+  filter(Date == max(Date) & Year == lubridate::year(Sys.Date()))
+
+```
+
+---
+title: "TSA passenger screening data as of `r format(max(passengers$Date), "%B %d")`"
+output: 
+  html_document:
+    fig_width: 8
+
+---
+
+The US Transportation Security Administration began publishing daily screening volumes at US airports in the spring of 2020, as global efforts to limit the spread of the Covid-19 pandemic smothered air travel demand. The administration has continued to publish daily data giving valuable insight into both US air travel’s collapse and ongoing recovery.
+
+### Latest screening data
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+kbl(passengers %>%
+  filter(Date >= as.Date(format(Sys.Date()-1, "%Y-%m-01"))) %>%
+  group_by(Year) %>%
+  dplyr::summarize(Average = round(mean(Passengers),0), `Days so far`=n()) %>%
+    arrange(desc(Year)) %>%
+    select(-`Days so far`),
+  format.args = list(big.mark = ",")) %>%
+      kable_styling(bootstrap_options = "striped", 
+                    full_width = F, 
+                    position = "float_right")
+
+```
+
+TSA reported `r format(latest %>% magrittr::extract2("Passengers"), nsmall = 0, big.mark=",")` passengers screened on the most recent day with data. That represents `r round(latest %>% magrittr::extract2("pc"), 0)`pc of 2019 screenings for the same day. Refiners and air carriers estimated that 85pc of 2019 demand represents full domestic capacity. The remaining 15pc of international demand was presumed more vulnerable to trickier global considerations on Covid-19 mitigation policies.
+
+The table on the right looks at how average screenings stack up in available data for the the month of `r format(max(passengers$Date), "%B")` so far.
+
+<br>
+<br>
+<br>
+
+```{r monthplot, echo=FALSE, message=FALSE, warning=FALSE, out.width="100%"}
+f + coord_cartesian(xlim = c(as.Date(format(Sys.Date()-1, "%Y-%m-01"))-months(1), as.Date(format(Sys.Date()-1, "%Y-%m-01"))+months(1)-1)) +
+  geom_text_repel(aes(label = if_else(Date == max(Date) & Year == 2022, paste(round(pc,1), "pc\nof 2019", sep = ""), NULL), family = "Verdana"),
+                   nudge_x = 1,
+                   color = "orangered") +
+  labs(title = paste("TSA Passengers Screened since", format(Sys.Date()-months(1)-1, "%B"), sep=" "),
+       subtitle = paste("Updated through ", format(max(passengers$Date), "%d %B"), sep = ""))
+```
+
+### Week-to-week comparisons
+Air travel varies significantly based on the day of the week. These plots look at the change in screened passengers from seven days earlier, isolating for these comparisons. 
+<br>
+
+```{r weekplot, echo=FALSE, message=FALSE, warning=FALSE, out.width="100%"}
+passengers %>%
+  arrange(Date) %>%
+  group_by(Year) %>%
+  mutate(WoW = Passengers-lag(Passengers, 7),
+         WoWpc = round((WoW/lag(Passengers, 7))*100, 1)) %>% # Add a column for prior week data and pc change
+  arrange(desc(Date)) %>%
+  filter(Date >= as.Date(Sys.Date()-1-lubridate::weeks(4))) %>%
+  select(Date, Year, WoWpc) %>%
+  ggplot(., aes(Date, WoWpc, fill = WoWpc < 0, color = Year)) +
+  geom_col(position = "dodge") +
+  facet_grid(. ~ Year) +
+  labs(title = paste("Weekly changes in TSA Passenger Screenings since", format(lubridate::rollback(Sys.Date()), "%B")),
+       caption = "Source: Transportation Security Administration",
+       x = element_blank(),
+       y = "Percent Change") +
+  scale_fill_manual(values = c("cornflowerblue", "red3"), guide = FALSE) +
+  theme_light(base_family = "Segoe UI Semibold") +
+  theme(plot.title = element_text(hjust = 0.5),
+        legend.position = "bottom",
+        legend.title = element_blank(),
+        panel.background = element_rect(fill = "white"),
+        panel.border = element_blank(),
+        panel.grid.major.y = element_line(size = 0.25, linetype = "solid", color = "gray"),
+        panel.grid.minor.y = element_blank(),
+        panel.grid.major.x = element_blank(),
+        panel.grid.minor.x = element_blank(),
+        axis.text.x = element_text(angle = 45),
+        strip.background = element_rect(color = "#005DAA", fill = "#6CADDF"),
+        strip.text.x = element_text(color = "White")) +
+  scale_y_continuous(labels = scales::comma)
+
+```
+
+<br>
+Screenings collapsed to 100,000 in April 2020 as governments worldwide restricted travel. Air travel began a sustained recovery in the first quarter of 2021, but has continued to lag pre-pandemic levels. Reduced business trips, more difficult international travel and other factors continue to limit the recovery of US passenger screenings. 
+
+```{r warning=FALSE, echo=FALSE}
+f
+```
+
