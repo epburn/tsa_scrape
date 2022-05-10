@@ -30,9 +30,9 @@ loadfonts(device = "win", quiet = TRUE)
 
 # establish plotting colors for years of review since 2019
 tsa_colors = c(`2019` = "green3", 
-               `2020` = "firebrick2", 
+               `2020` = "purple2", 
                `2021` = "lightskyblue",
-               `2022` = "purple2")
+               `2022` = "firebrick2")
 
 # fetch the latest screening numbers
 stored <- "data/tsa_screen.csv"
@@ -163,7 +163,7 @@ The table on the right looks at how average screenings stack up in available dat
 ```{r monthplot, echo=FALSE, message=FALSE, warning=FALSE, out.width="100%"}
 f + coord_cartesian(xlim = c(as.Date(format(Sys.Date()-1, "%Y-%m-01"))-months(1), as.Date(format(Sys.Date()-1, "%Y-%m-01"))+months(1)-1)) +
   geom_text_repel(aes(label = if_else(Date == max(Date) & Year == 2022, paste(round(pc,1), "pc\nof 2019", sep = ""), NULL), family = "Verdana"),
-                   nudge_x = 1,
+                  nudge_x = 6,
                    color = "orangered") +
   labs(title = paste("TSA Passengers Screened since", format(Sys.Date()-months(1)-1, "%B"), sep=" "),
        subtitle = paste("Updated through ", format(max(passengers$Date), "%d %B"), sep = ""))
