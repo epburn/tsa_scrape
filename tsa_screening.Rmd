@@ -32,8 +32,8 @@ loadfonts(device = "win", quiet = TRUE)
 # establish plotting colors for years of review since 2019
 tsa_colors = c(`2019` = "green3", 
                `2020` = "purple2", 
-               `2021` = "lightskyblue",
-               `2022` = "firebrick2")
+               `2022` = "lightskyblue",
+               `2023` = "firebrick2")
 
 # fetch the latest screening numbers
 stored <- "data/tsa_screen.csv"
@@ -73,8 +73,8 @@ if (max(old$Date) < max(passengers$Date)){
 
 passengers <- passengers %>%
   pivot_wider(names_from = "Year", values_from = "Passengers") %>%
-  mutate(pc = (`2022`/`2019`)*100) %>%
-    pivot_longer(`2019`:`2022`, names_to = "Year", 
+  mutate(pc = (`2023`/`2019`)*100) %>%
+    pivot_longer(`2019`:`2023`, names_to = "Year", 
                  names_pattern = "^(\\d+)", values_to = "Passengers") %>%
     mutate(Passengers = as.numeric(gsub(",", "", Passengers))) %>%
     arrange(desc(Date), Year)
