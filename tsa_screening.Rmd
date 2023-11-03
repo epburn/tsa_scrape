@@ -65,7 +65,7 @@ if (max(old$Date) < max(passengers$Date)){
   new <- unique(new)
   write.csv(new,stored, row.names = FALSE)
   rm(TSA, new, old)
-} else {
+  } else {
   passengers <- old %>%
     arrange(Date, Year)
   rm(TSA, old)
