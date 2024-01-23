@@ -32,8 +32,8 @@ loadfonts(device = "win", quiet = TRUE)
 # establish plotting colors for years of review since 2019
 tsa_colors = c(`2019` = "green3", 
                `2020` = "purple2", 
-               `2022` = "lightskyblue",
-               `2023` = "firebrick2")
+               `2023` = "lightskyblue",
+               `2024` = "firebrick2")
 
 # fetch the latest screening numbers
 stored <- "data/tsa_screen.csv"
@@ -52,18 +52,20 @@ passengers$Date <- lubridate::mdy(passengers$Date)
 passengers <- passengers %>%
   arrange(desc(Date))
 
+as_of <- max(passengers$Date)
+
 # check this table for new material. update backup if new data exists.
 old <- read.csv(stored, header = TRUE, sep=",")
 old$Date <- lubridate::ymd(old$Date)
-#colnames(old) <- c("Date", "2021", "2020", "2019")
 
 
 ### why do I pivot wider to merge? rewrite this
 if (max(old$Date) < max(passengers$Date)){
   colnames(old) <- colnames(passengers)
-  new <- merge(old, passengers, all.y = TRUE)
+  new <- merge(old, passengers, all = TRUE)
   new <- unique(new)
   write.csv(new,stored, row.names = FALSE)
+  passengers <- new
   rm(TSA, new, old)
   } else {
   passengers <- old %>%
@@ -71,10 +73,21 @@ if (max(old$Date) < max(passengers$Date)){
   rm(TSA, old)
 }
 
+#Non-destructively convert stored TSA data to a single, compared 
+passengers <- passengers %>%
+  mutate(yearday = lubridate::yday(Date)) %>%
+  arrange(yearday, desc(Date)) %>%
+  group_by(yearday, Year) %>%
+  filter(!is.na(Passengers) & !duplicated(yearday)) %>%
+  mutate(Date = as_date(yearday, origin = paste(year(now()), "01", "01", sep = "-"))) %>%
+  arrange(Date, Year) %>%
+  ungroup() %>%
+  select(Date, Year, Passengers)
+
 passengers <- passengers %>%
   pivot_wider(names_from = "Year", values_from = "Passengers") %>%
-  mutate(pc = (`2023`/`2019`)*100) %>%
-    pivot_longer(`2019`:`2023`, names_to = "Year", 
+  mutate(pc = (`2024`/`2019`)*100) %>%
+    pivot_longer(`2019`:`2024`, names_to = "Year", 
                  names_pattern = "^(\\d+)", values_to = "Passengers") %>%
     mutate(Passengers = as.numeric(gsub(",", "", Passengers))) %>%
     arrange(desc(Date), Year)
@@ -122,12 +135,12 @@ f <- passengers %>%
         strip.text.x = element_text(color = "White"))
 
 latest <- passengers %>% # What is the latest number of passengers screened?
-  filter(Date == max(Date) & Year == lubridate::year(Sys.Date()))
+  filter(Date == as_of & Year == lubridate::year(Sys.Date()))
 
 ```
 
 ---
-title: "TSA passenger screening data as of `r format(max(passengers$Date), "%B %d")`"
+title: "TSA passenger screening data as of `r format(latest$Date, "%B %d")`"
 output: 
   html_document:
     fig_width: 8
@@ -141,7 +154,7 @@ The US Transportation Security Administration began publishing daily screening v
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 
 kbl(passengers %>%
-  filter(Date >= as.Date(format(Sys.Date()-1, "%Y-%m-01"))) %>%
+  filter(Date < as_of & Date >= as.Date(format(as_of, "%Y-%m-01"))) %>%
   group_by(Year) %>%
   dplyr::summarize(Average = round(mean(Passengers),0), `Days so far`=n()) %>%
     arrange(desc(Year)) %>%
@@ -181,19 +194,19 @@ passengers %>%
   mutate(WoW = Passengers-lag(Passengers, 7),
          WoWpc = round((WoW/lag(Passengers, 7))*100, 1)) %>% # Add a column for prior week data and pc change
   arrange(desc(Date)) %>%
-  filter(Date >= as.Date(Sys.Date()-1-lubridate::weeks(4))) %>%
+  filter(Date >= as.Date(now()) %m+% weeks(-2) & Date <= now()) %>%
   select(Date, Year, WoWpc) %>%
-  ggplot(., aes(Date, WoWpc, fill = WoWpc < 0, color = Year)) +
+  ggplot(., aes(Date, WoWpc, fill = WoWpc < 0)) +
   geom_col(position = "dodge") +
   facet_grid(. ~ Year) +
   labs(title = paste("Weekly changes in TSA Passenger Screenings since", format(lubridate::rollback(Sys.Date()), "%B")),
        caption = "Source: Transportation Security Administration",
        x = element_blank(),
        y = "Percent Change") +
-  scale_fill_manual(values = c("cornflowerblue", "red3"), guide = FALSE) +
+  scale_fill_manual(values = c("cornflowerblue", "red3"), guide = "none") +
   theme_light(base_family = "Segoe UI Semibold") +
   theme(plot.title = element_text(hjust = 0.5),
-        legend.position = "bottom",
+        legend.position = "none",
         legend.title = element_blank(),
         panel.background = element_rect(fill = "white"),
         panel.border = element_blank(),
@@ -211,7 +224,7 @@ passengers %>%
 <br>
 Screenings collapsed to 100,000 in April 2020 as governments worldwide restricted travel. Air travel began a sustained recovery in the first quarter of 2021, but has continued to lag pre-pandemic levels. Reduced business trips, more difficult international travel and other factors continue to limit the recovery of US passenger screenings. 
 
-```{r warning=FALSE, echo=FALSE}
+```{r warning=FALSE, echo=FALSE, out.width="100%"}
 f
 ```
 
