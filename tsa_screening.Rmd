@@ -179,8 +179,8 @@ f + coord_cartesian(xlim = c(as.Date(format(Sys.Date()-1, "%Y-%m-01"))-months(1)
   geom_text_repel(aes(label = if_else(Date == max(Date) & Year == year(max(Date)), paste(round(pc,1), "pc\nof 2019", sep = ""), NA), family = "Verdana"),
                   nudge_x = 6,
                    color = "orangered") +
-  labs(title = paste("TSA Passengers Screened since", format(Sys.Date() %m+% months(-1)-1, "%B"), sep=" "),
-       subtitle = paste("Updated through ", format(max(passengers$Date), "%d %B"), sep = ""))
+  labs(title = paste("TSA Passengers Screened since", format(as_of %m+% months(-1)-1, "%B"), sep=" "),
+       subtitle = paste("Updated through ", format(as_of, "%d %B"), sep = ""))
 ```
 
 ### Week-to-week comparisons
