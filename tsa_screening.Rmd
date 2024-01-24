@@ -115,8 +115,8 @@ f <- passengers %>%
   geom_text(aes(as.Date(format(Sys.Date(), "%Y-03-20")),100000,label = "100,000 passengers", vjust=1, family = "Segoe UI Semibold"), color="#990000", show.legend = FALSE) +
   scale_y_continuous(labels = scales::comma) +
   scale_color_manual(values = tsa_colors) +
-  labs(title = paste("TSA Passengers Screened as of", format(max(passengers$Date), "%B %d"), sep = " "),
-       subtitle = paste("Current as of ", format(max(passengers$Date), "%d %B"), sep = ""),
+  labs(title = paste("TSA Passengers Screened as of", format(as_of, "%B %d"), sep = " "),
+       subtitle = paste("Current as of ", format(as_of, "%d %B"), sep = ""),
        caption = "Source: Transportation Security Administration",
        x = element_blank(),
        y = element_blank()) +
