@@ -37,7 +37,7 @@ tsa_colors = c(`2019` = "green3",
 
 # fetch the latest screening numbers
 stored <- "data/tsa_screen.csv"
-url <- "https://www.tsa.gov/coronavirus/passenger-throughput"
+url <- "https://www.tsa.gov/travel/passenger-volumes"
 TSA <- url %>%
   xml2::read_html() %>%
   html_table(fill = TRUE)
@@ -75,11 +75,11 @@ if (max(old$Date) < max(passengers$Date)){
 
 #Non-destructively convert stored TSA data to a single, compared 
 passengers <- passengers %>%
-  mutate(yearday = lubridate::yday(Date)) %>%
+  mutate(yearday = ifelse(yday(Date) > 59 & leap_year(Date) == FALSE, yday(Date) + 1, yday(Date))) %>%
   arrange(yearday, desc(Date)) %>%
   group_by(yearday, Year) %>%
-  filter(!is.na(Passengers) & !duplicated(yearday)) %>%
-  mutate(Date = as_date(yearday, origin = paste(year(now()), "01", "01", sep = "-"))) %>%
+  filter(!duplicated(yearday)) %>%
+  mutate(Date = as_date(yearday-1, origin = paste(year(now()), "01", "01", sep = "-"))) %>%
   arrange(Date, Year) %>%
   ungroup() %>%
   select(Date, Year, Passengers)
@@ -112,7 +112,11 @@ f <- passengers %>%
   ggplot(., aes(x=Date, y=Passengers, col=Year)) +
   geom_line(size=0.8) +
   geom_hline(aes(yintercept=100000), color="#990000", linetype="dashed") +
-  geom_text(aes(as.Date(format(Sys.Date(), "%Y-03-20")),100000,label = "100,000 passengers", vjust=1, family = "Segoe UI Semibold"), color="#990000", show.legend = FALSE) +
+  annotate("text", 
+             x=as.Date(format(Sys.Date(), "%Y-03-20")),
+             y = 70000,
+             label = "100,000 passengers", 
+             color="#990000") +
   scale_y_continuous(labels = scales::comma) +
   scale_color_manual(values = tsa_colors) +
   labs(title = paste("TSA Passengers Screened as of", format(as_of, "%B %d"), sep = " "),
