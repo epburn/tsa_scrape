@@ -172,7 +172,7 @@ kbl(passengers %>%
 
 TSA reported `r format(latest %>% magrittr::extract2("Passengers"), nsmall = 0, big.mark=",")` passengers screened on the most recent day with data. That represents `r round(latest %>% magrittr::extract2("pc"), 0)`pc of 2019 screenings for the same day. Refiners and air carriers estimated that 85pc of 2019 demand represents full domestic capacity. The remaining 15pc of international demand was presumed more vulnerable to trickier global considerations on Covid-19 mitigation policies.
 
-The table on the right looks at how average screenings stack up in available data for the the month of `r format(max(passengers$Date), "%B")` so far.
+The table on the right looks at how average screenings stack up in available data for the the month of `r format(latest$Date, "%B")` so far.
 
 <br>
 <br>
