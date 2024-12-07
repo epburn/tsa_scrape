@@ -37,9 +37,7 @@ tsa_colors = c(`2019` = "green3",
 
 # fetch the latest screening numbers
 stored <- "data/tsa_screen.csv"
-url <- "https://www.tsa.gov/travel/passenger-volumes"
-TSA <- url %>%
-  xml2::read_html() %>%
+TSA <- read_html_live("https://www.tsa.gov/travel/passenger-volumes") %>%
   html_table(fill = TRUE)
 
 # process the HTML table into a tall dataframe
